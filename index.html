@@ -279,7 +279,7 @@ function renderAdminLogin(){
   const go=async()=>{
     const btn=$("#go"); btn.disabled=true;
     try{ await signInWithEmailAndPassword(auth, $("#em").value.trim(), $("#pw").value); }
-    catch(e){ const m=$("#m"); m.className="msg show"; m.textContent="E-mail ou senha incorretos."; btn.disabled=false; }
+    catch(e){ const m=$("#m"); m.className="msg show"; m.textContent="Erro: "+((e&&e.code)||e); btn.disabled=false; }
   };
   $("#go").onclick=go;
   $("#pw").addEventListener("keydown",e=>{ if(e.key==="Enter") go(); });
