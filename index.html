@@ -59,6 +59,40 @@
   .foot{color:var(--hint);font-size:.75rem;text-align:center;margin-top:18px}
   .foot a{color:var(--label);text-underline-offset:3px}
   .loading{text-align:center;color:var(--label);padding:40px 0;font-size:.85rem}
+
+  /* ---------- admin: ranking e desktop ---------- */
+  .wrap.admin{max-width:1100px;padding:28px 24px 64px}
+  .sec{font-size:1.05rem;margin:6px 0 12px}
+  .sec.mt{margin-top:30px}
+  .rhead{display:none}
+  .rrow{display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:8px 12px;padding:16px 18px;margin-bottom:8px;box-shadow:var(--shadow)}
+  .rpos{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:1.05rem}
+  .rname{display:flex;align-items:center;gap:12px;min-width:0}
+  .rname h3{font-size:1.02rem;line-height:1.2}
+  .rname small{display:block;font-family:'IBM Plex Sans',sans-serif;font-weight:400;font-size:.72rem;color:var(--label);margin-top:2px}
+  .rfinal{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:1.2rem;text-align:right}
+  .ravgs{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;border-top:1px solid var(--line);padding-top:10px}
+  .ravg .lb{display:block;font-weight:700;font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;color:var(--label)}
+  .ravg .val{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:.95rem}
+  .grid{display:grid;grid-template-columns:1fr;gap:11px}
+  .grid .pcard{margin-bottom:0}
+  .part-grid{display:grid;grid-template-columns:1fr;column-gap:36px}
+  @media (min-width:720px){
+    .grid{grid-template-columns:repeat(2,1fr)}
+    .part-grid{grid-template-columns:repeat(2,1fr)}
+  }
+  @media (min-width:1000px){
+    .grid{grid-template-columns:repeat(3,1fr)}
+    .part-grid{grid-template-columns:repeat(3,1fr)}
+    .rhead{display:grid;grid-template-columns:56px 1fr repeat(4,110px) 90px;gap:12px;padding:0 18px 8px;
+      font-weight:700;font-size:.64rem;letter-spacing:.09em;text-transform:uppercase;color:var(--label)}
+    .rhead span:nth-child(n+3){text-align:right}
+    .rrow{grid-template-columns:56px 1fr repeat(4,110px) 90px;padding:16px 18px}
+    .ravgs{display:contents}
+    .ravg{text-align:right}
+    .ravg .lb{display:none}
+    .rfinal{order:99}
+  }
 </style>
 </head>
 <body>
@@ -258,6 +292,7 @@ let adminEstado = { abertas: [] };
 function limparListeners(){ unsubs.forEach(u=>{try{u()}catch(e){}}); unsubs=[]; }
 
 function renderAdmin(){
+  root.className="wrap";
   root.innerHTML = `<div class="loading">Carregando…</div>`;
   onAuthStateChanged(auth, user=>{
     limparListeners();
@@ -266,6 +301,7 @@ function renderAdmin(){
 }
 
 function renderAdminLogin(){
+  root.className="wrap";
   root.innerHTML = `
     <section class="pcard" style="background:#E4E4E7">
       <div class="phead"><div class="avatar">P</div><h2>Professora</h2></div>
@@ -279,18 +315,29 @@ function renderAdminLogin(){
   const go=async()=>{
     const btn=$("#go"); btn.disabled=true;
     try{ await signInWithEmailAndPassword(auth, $("#em").value.trim(), $("#pw").value); }
-    catch(e){ const m=$("#m"); m.className="msg show"; m.textContent="Erro: "+((e&&e.code)||e); btn.disabled=false; }
+    catch(e){
+      const c=(e&&e.code)||"";
+      const m=$("#m"); m.className="msg show";
+      m.textContent = c==="auth/unauthorized-domain" ? "Este endereço não está autorizado no Firebase (Authentication > Configurações > Domínios autorizados)."
+        : (c==="auth/invalid-credential"||c==="auth/wrong-password"||c==="auth/user-not-found"||c==="auth/invalid-email"||!c) ? "E-mail ou senha incorretos."
+        : c==="auth/operation-not-allowed" ? "O login por e-mail e senha não está ativado no Firebase."
+        : c==="auth/too-many-requests" ? "Muitas tentativas. Espere alguns minutos e tente de novo."
+        : "Não foi possível entrar ("+c+").";
+      btn.disabled=false;
+    }
   };
   $("#go").onclick=go;
   $("#pw").addEventListener("keydown",e=>{ if(e.key==="Enter") go(); });
 }
 
 function renderAdminBoard(user){
+  root.className="wrap admin";
   root.innerHTML = `
     <div id="board"></div>
+    <h2 class="sec mt">Quem já votou</h2>
     <section class="pcard" style="background:#E4E4E7" id="partcard">
-      <div class="phead"><div class="avatar">V</div><h2>Quem já votou</h2><span class="big" id="count">0</span></div>
-      <div id="part"></div>
+      <div class="phead"><div class="avatar">V</div><h2>Participação</h2><span class="big" id="count">0</span></div>
+      <div id="part" class="part-grid"></div>
       <button class="btn" id="csv">Baixar CSV</button>
     </section>
     <p class="foot"><span id="votos-txt"></span> · <a href="#" id="out">sair</a></p>`;
@@ -319,21 +366,49 @@ function drawBoard(){
     const cats=Object.fromEntries(CATS.map(c=>[c.key, n? vs.reduce((s,v)=>s+v[c.key],0)/n : null]));
     return { p, n, esperados:total-p.membros.length, cats, final:n? vs.reduce((s,v)=>s+v.media,0)/n : null };
   });
-  const ordem = dados.filter(d=>d.final!==null).sort((a,b)=>b.final-a.final);
-  const pos = d=>{ if(d.final===null) return "-"; return ordem.findIndex(o=>o.final===d.final)+1+"º"; };
   const fmt=v=>v===null?"-":v.toFixed(1);
-  el.innerHTML = dados.map(d=>{
-    const aberta=adminEstado.abertas.includes(d.p.id);
-    return `
-    <section class="pcard" style="background:${d.p.cor}" id="acard-${d.p.id}">
-      <div class="phead"><div class="avatar">${esc(d.p.nome[0])}</div><h2>${esc(d.p.nome)}</h2><span class="big">${fmt(d.final)}</span></div>
-      ${CATS.map(c=>`<div class="prow"><span class="lb">${esc(c.nome)}</span><span class="val">${fmt(d.cats[c.key])}</span></div>`).join("")}
-      <div class="prow"><span class="lb">Posição</span><span class="val">${pos(d)}</span></div>
-      <div class="prow"><span class="lb">Votos</span><span class="val">${d.n}/${d.esperados}</span></div>
-      <div class="prow"><span class="lb">Votação</span><span class="val st ${aberta?"open":""}">${aberta?"Aberta":"Fechada"}</span></div>
-      <button class="btn ${aberta?"light":""}" data-toggle="${d.p.id}">${aberta?"Fechar votação":"Abrir votação"}</button>
-    </section>`;
-  }).join("");
+
+  // ranking: maior média primeiro, sem votos por último; empate divide a posição
+  const ord = dados.slice().sort((x,y)=>{
+    if(x.final===null&&y.final===null) return 0;
+    if(x.final===null) return 1;
+    if(y.final===null) return -1;
+    return y.final-x.final;
+  });
+  let posAtual=0, ultimo=null;
+  const rank = ord.map((d,i)=>{
+    if(d.final===null) return {d,pos:"-"};
+    if(ultimo===null || d.final.toFixed(2)!==ultimo){ posAtual=i+1; ultimo=d.final.toFixed(2); }
+    return {d,pos:posAtual+"º"};
+  });
+
+  const rankHtml = `
+    <h2 class="sec">Ranking</h2>
+    <div class="rhead"><span>Pos.</span><span>Projeto</span>${CATS.map(c=>`<span>${esc(c.curto)}</span>`).join("")}<span>Final</span></div>
+    ${rank.map(({d,pos})=>`
+      <div class="rrow" style="background:${d.p.cor}" id="rank-${d.p.id}">
+        <span class="rpos">${pos}</span>
+        <div class="rname"><div class="avatar">${esc(d.p.nome[0])}</div><h3>${esc(d.p.nome)}<small>${d.n}/${d.esperados} votos</small></h3></div>
+        <span class="rfinal">${fmt(d.final)}</span>
+        <div class="ravgs">${CATS.map(c=>`<div class="ravg"><span class="lb">${esc(c.curto)}</span><span class="val">${fmt(d.cats[c.key])}</span></div>`).join("")}</div>
+      </div>`).join("")}`;
+
+  const ctrlHtml = `
+    <h2 class="sec mt">Votação</h2>
+    <div class="grid">
+    ${dados.map(d=>{
+      const aberta=adminEstado.abertas.includes(d.p.id);
+      return `
+      <section class="pcard" style="background:${d.p.cor}" id="acard-${d.p.id}">
+        <div class="phead"><div class="avatar">${esc(d.p.nome[0])}</div><h2>${esc(d.p.nome)}</h2></div>
+        <div class="prow"><span class="lb">Votos</span><span class="val">${d.n}/${d.esperados}</span></div>
+        <div class="prow"><span class="lb">Votação</span><span class="val st ${aberta?"open":""}">${aberta?"Aberta":"Fechada"}</span></div>
+        <button class="btn ${aberta?"light":""}" data-toggle="${d.p.id}">${aberta?"Fechar votação":"Abrir votação"}</button>
+      </section>`;
+    }).join("")}
+    </div>`;
+
+  el.innerHTML = rankHtml + ctrlHtml;
   el.querySelectorAll("[data-toggle]").forEach(b=>{
     b.onclick=async()=>{
       const id=b.dataset.toggle;
