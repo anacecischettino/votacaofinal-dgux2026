@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Votação final dos projetos</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg:#f3f3f3; --ink:#1c1c1e; --label:#767980; --hint:#9a9ca2; --line:rgba(0,0,0,.13);
+    --btn:#4a4d55; --btn-dark:#363840; --danger:#1c1c1e;
+    --shadow:0 1px 2px rgba(0,0,0,.04), 0 8px 22px rgba(0,0,0,.07);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;border-radius:0}
+  body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;line-height:1.4}
+  .wrap{max-width:400px;margin:0 auto;padding:22px 16px 56px}
+  h1,h2,h3{font-family:'IBM Plex Mono',ui-monospace,monospace;letter-spacing:0;font-weight:700}
+
+  .pcard{padding:20px 18px 18px;margin-bottom:11px;box-shadow:var(--shadow)}
+  .phead{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+  .avatar{width:22px;height:22px;flex:none;display:grid;place-items:center;border:1.5px solid #8d8f96;font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:.72rem}
+  .phead h2{font-size:1.05rem;line-height:1.2;flex:1}
+  .phead .big{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:1.05rem}
+  .prow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+  .prow label,.prow .lb{font-weight:700;font-size:.68rem;letter-spacing:.09em;text-transform:uppercase;color:var(--label)}
+  .prow input[type=text]{
+    width:56px;flex:none;text-align:right;font-family:inherit;font-size:.85rem;font-weight:500;color:var(--ink);
+    background:transparent;border:0;border-bottom:1.5px solid var(--hint);padding:4px 2px;outline:none;
+  }
+  .prow input[type=text]::placeholder{color:var(--hint);font-weight:400}
+  .prow input[type=text]:focus{border-bottom-color:var(--ink)}
+  .prow input[type=text]:disabled{opacity:.7}
+  .prow .val{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:.85rem}
+  .prow .val.open{color:var(--ink)}
+
+  .btn{
+    display:flex;align-items:center;justify-content:center;width:100%;height:34px;margin-top:14px;
+    font-family:inherit;font-weight:700;font-size:.82rem;color:#fff;background:var(--btn);border:0;cursor:pointer;
+  }
+  .btn:hover{background:var(--btn-dark)}
+  .btn[disabled]{opacity:.55;cursor:not-allowed}
+  .btn.light{background:rgba(255,255,255,.65);color:var(--ink)}
+  .btn.light:hover{background:rgba(255,255,255,.9)}
+  .cardmsg{font-size:.78rem;font-weight:600;margin-top:10px;min-height:1em;color:var(--label)}
+  .cardmsg.err{color:var(--danger)}
+
+  select,input[type=email],input[type=password]{
+    width:100%;font-family:inherit;font-size:.9rem;color:var(--ink);background:rgba(255,255,255,.55);
+    border:0;border-bottom:1.5px solid var(--hint);padding:10px 8px;outline:none;
+  }
+  select:focus,input[type=email]:focus,input[type=password]:focus{border-bottom-color:var(--ink)}
+  .field{display:block;font-weight:700;font-size:.68rem;letter-spacing:.09em;text-transform:uppercase;color:var(--label);margin:14px 0 6px}
+  .msg{font-size:.8rem;font-weight:600;color:var(--danger);margin-top:12px;display:none}
+  .msg.show{display:block}
+  .foot{color:var(--hint);font-size:.75rem;text-align:center;margin-top:18px}
+  .foot a{color:var(--label);text-underline-offset:3px}
+  .loading{text-align:center;color:var(--label);padding:40px 0;font-size:.85rem}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><div class="loading">Carregando…</div></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore, collection, doc, setDoc, onSnapshot
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {
+  getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+/* ===========================================================
+   1) CONFIGURAÇÃO DO FIREBASE
+   Cole aqui os valores do seu projeto.
+   Console Firebase > Configurações do projeto > Seus apps > Web
+   =========================================================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyCJ5ohdMZ9zxIUyGU5MXI2eJj3v3PzIC3g",
+  authDomain: "votacao-final-dgux2026.firebaseapp.com",
+  projectId: "votacao-final-dgux2026",
+  storageBucket: "votacao-final-dgux2026.firebasestorage.app",
+  messagingSenderId: "1030784175210",
+  appId: "1:1030784175210:web:330cf40445ec86c83e8e13"
+};
+
+/* ===========================================================
+   2) PROJETOS E ALUNOS
+   Cada aluno vota em todos os projetos, menos no seu.
+   "cor" é o tom pastel do cartão do projeto.
+   =========================================================== */
+const PROJETOS = [
+  { id:"trilha",   nome:"Trilha",         cor:"#E8D4D0", membros:[["saulo","Saulo"],["gustavo","Gustavo"]] },
+  { id:"meza",     nome:"Meza",           cor:"#D3DADF", membros:[["henrique","Henrique"],["filippo","Filippo"]] },
+  { id:"sil",      nome:"SIL",            cor:"#DDD1E5", membros:[["guilherme","Guilherme"],["joao-fellipe","João Fellipe"]] },
+  { id:"funmatch", nome:"FunMatch",       cor:"#D5E0D6", membros:[["gabriel","Gabriel"],["edgar","Edgar"]] },
+  { id:"byke",     nome:"Byke",           cor:"#E2DFE4", membros:[["manuela","Manuela"],["caue","Cauê"],["davi","Davi"]] },
+  { id:"connect",  nome:"Connect Skills", cor:"#E0E0E4", membros:[["mateus","Mateus"],["felipe","Felipe"]] }
+];
+
+/* ===========================================================
+   3) PARÂMETROS (nota de 0 a 100) E PESOS
+   Para mudar o peso de um parâmetro, altere "peso".
+   =========================================================== */
+const CATS = [
+  { key:"desenvolvimento", nome:"Desenvolvimento conceitual", dica:"", peso:1, curto:"Conceito" },
+  { key:"usabilidade",     nome:"Usabilidade do protótipo",   dica:"",                                      peso:1, curto:"Usabilidade" },
+  { key:"apresentacao",    nome:"Apresentação",               dica:"", peso:1, curto:"Apresent." },
+  { key:"comunicacao",     nome:"Materiais de comunicação",   dica:"", peso:1, curto:"Comunic." }
+];
+/* =========================================================== */
+
+const ALUNOS = PROJETOS.flatMap(p=>p.membros.map(([id,nome])=>({id,nome,projeto:p.id})));
+const projetoPorId = Object.fromEntries(PROJETOS.map(p=>[p.id,p]));
+const alunoPorId   = Object.fromEntries(ALUNOS.map(a=>[a.id,a]));
+const PESO_TOTAL = CATS.reduce((s,c)=>s+c.peso,0);
+
+const app  = initializeApp(firebaseConfig);
+const db   = getFirestore(app);
+const auth = getAuth(app);
+const $ = (s,r=document)=>r.querySelector(s);
+const root = $("#app");
+const esc = s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+const configOK = !Object.values(firebaseConfig).includes("COLE_AQUI");
+const isAdmin = location.hash.replace("#","").toLowerCase()==="admin";
+
+function renderConfigWarning(){
+  root.innerHTML = `
+    <section class="pcard" style="background:#E4E4E7">
+      <div class="phead"><div class="avatar">!</div><h2>Falta a config do Firebase</h2></div>
+      <div class="cardmsg">Cole as chaves do seu projeto no bloco firebaseConfig do index.html e recarregue.</div>
+    </section>`;
+}
+
+/* ============================================================
+   ALUNO
+   ============================================================ */
+let currentUser = localStorage.getItem("votante_id") || null;
+if(currentUser && !alunoPorId[currentUser]) currentUser = null;
+let estado = { abertas: [] };
+let view = "login";
+let rascunho = {};
+
+function lerSalvas(){ try{ return JSON.parse(localStorage.getItem("notas_"+currentUser)||"{}"); }catch(e){ return {}; } }
+function gravarSalva(alvo, notas){ const s=lerSalvas(); s[alvo]=notas; try{ localStorage.setItem("notas_"+currentUser, JSON.stringify(s)); }catch(e){} }
+
+function startStudent(){
+  onSnapshot(doc(db,"config","estado"), snap=>{
+    estado = snap.exists() ? { abertas: snap.data().abertas||[] } : { abertas: [] };
+    if(view==="home") renderHome();
+  }, ()=>{});
+  if(!currentUser) renderLogin(); else renderHome();
+}
+
+function renderLogin(){
+  view="login";
+  const opts = ALUNOS.slice().sort((a,b)=>a.nome.localeCompare(b.nome,"pt")).map(a=>`<option value="${a.id}">${esc(a.nome)}</option>`).join("");
+  root.innerHTML = `
+    <section style="padding:20px 2px 0">
+      <h2 style="font-size:1.05rem;margin-bottom:6px">Quem é você?</h2>
+      <label class="field" for="who">Seu nome</label>
+      <select id="who">${opts}</select>
+      <button class="btn" id="enter">Entrar</button>
+    </section>`;
+  $("#enter").onclick=()=>{
+    currentUser=$("#who").value;
+    localStorage.setItem("votante_id",currentUser);
+    rascunho={};
+    renderHome();
+  };
+}
+
+function notasDoCartao(pid){
+  const salvas = lerSalvas()[pid] || {};
+  const r = rascunho[pid] || {};
+  const out = {};
+  CATS.forEach(c=>{ out[c.key] = (r[c.key]!==undefined) ? r[c.key] : (salvas[c.key]!==undefined ? String(salvas[c.key]) : ""); });
+  return out;
+}
+
+function renderHome(){
+  view="home";
+  const eu = alunoPorId[currentUser];
+  const salvas = lerSalvas();
+  const alvos = PROJETOS.filter(p=>p.id!==eu.projeto);
+  const cards = alvos.map(p=>{
+    const aberta = estado.abertas.includes(p.id);
+    const votou = !!salvas[p.id];
+    const v = notasDoCartao(p.id);
+    const rows = CATS.map(c=>`
+      <div class="prow">
+        <label for="n-${p.id}-${c.key}">${esc(c.nome)}</label>
+        <input type="text" inputmode="numeric" maxlength="3" placeholder="0–100" autocomplete="off"
+          id="n-${p.id}-${c.key}" data-p="${p.id}" data-k="${c.key}" value="${esc(v[c.key])}" ${aberta?"":"disabled"}>
+      </div>`).join("");
+    const botao = aberta
+      ? `<button class="btn" data-send="${p.id}" disabled>${votou?"Atualizar nota":"Enviar nota"}</button>`
+      : `<button class="btn" disabled>${votou?"Nota enviada":"Aguardando apresentação"}</button>`;
+    return `
+      <section class="pcard" style="background:${p.cor}" id="card-${p.id}">
+        <div class="phead"><div class="avatar">${esc(p.nome[0])}</div><h2>${esc(p.nome)}</h2></div>
+        ${rows}
+        ${botao}
+        <div class="cardmsg" id="msg-${p.id}"></div>
+      </section>`;
+  }).join("");
+  root.innerHTML = `${cards}<p class="foot">${esc(eu.nome)} · <a href="#" id="logout">trocar</a></p>`;
+  $("#logout").onclick=e=>{ e.preventDefault(); localStorage.removeItem("votante_id"); currentUser=null; rascunho={}; renderLogin(); };
+
+  alvos.forEach(p=>{
+    const inputs = CATS.map(c=>$(`#n-${p.id}-${c.key}`));
+    const btn = root.querySelector(`[data-send="${p.id}"]`);
+    const valido = ()=>inputs.every(i=>/^\d{1,3}$/.test(i.value.trim()) && +i.value<=100);
+    const atualizar = ()=>{ if(btn) btn.disabled = !valido(); };
+    inputs.forEach(i=>{
+      i.oninput=()=>{
+        i.value = i.value.replace(/[^\d]/g,"").slice(0,3);
+        (rascunho[p.id] = rascunho[p.id]||{})[i.dataset.k] = i.value;
+        atualizar();
+      };
+      i.onblur=()=>{ if(i.value!=="" && +i.value>100){ i.value="100"; (rascunho[p.id]=rascunho[p.id]||{})[i.dataset.k]="100"; atualizar(); } };
+    });
+    atualizar();
+    if(btn) btn.onclick=()=>enviar(p, inputs, btn);
+  });
+}
+
+async function enviar(p, inputs, btn){
+  const msg = $("#msg-"+p.id);
+  const notas={};
+  inputs.forEach(i=>{ notas[i.dataset.k] = Math.max(0,Math.min(100,parseInt(i.value,10))); });
+  const media=+(CATS.reduce((s,c)=>s+notas[c.key]*c.peso,0)/PESO_TOTAL).toFixed(2);
+  const id=`${currentUser}__${p.id}`;
+  btn.disabled=true; const txt=btn.textContent; btn.textContent="Enviando…";
+  try{
+    await setDoc(doc(db,"votos",id),{ votante:currentUser, alvo:p.id, ...notas, media, ts:Date.now() });
+    gravarSalva(p.id, notas);
+    delete rascunho[p.id];
+    renderHome();
+    const m=$("#msg-"+p.id); if(m) m.textContent="Nota enviada";
+  }catch(e){
+    msg.className="cardmsg err";
+    msg.textContent = (e && e.code==="permission-denied") ? "A votação deste projeto está fechada." : "Não foi possível enviar. Tente de novo.";
+    btn.disabled=false; btn.textContent=txt;
+  }
+}
+
+/* ============================================================
+   PROFESSORA  (acesse com  ...#admin)
+   ============================================================ */
+let unsubs = [];
+let adminVotos = [];
+let adminEstado = { abertas: [] };
+function limparListeners(){ unsubs.forEach(u=>{try{u()}catch(e){}}); unsubs=[]; }
+
+function renderAdmin(){
+  root.innerHTML = `<div class="loading">Carregando…</div>`;
+  onAuthStateChanged(auth, user=>{
+    limparListeners();
+    if(user) renderAdminBoard(user); else renderAdminLogin();
+  });
+}
+
+function renderAdminLogin(){
+  root.innerHTML = `
+    <section class="pcard" style="background:#E4E4E7">
+      <div class="phead"><div class="avatar">P</div><h2>Professora</h2></div>
+      <label class="field" for="em" style="margin-top:4px">E-mail</label>
+      <input type="email" id="em" autocomplete="username">
+      <label class="field" for="pw">Senha</label>
+      <input type="password" id="pw" autocomplete="current-password">
+      <div class="msg" id="m"></div>
+      <button class="btn" id="go">Entrar</button>
+    </section>`;
+  const go=async()=>{
+    const btn=$("#go"); btn.disabled=true;
+    try{ await signInWithEmailAndPassword(auth, $("#em").value.trim(), $("#pw").value); }
+    catch(e){ const m=$("#m"); m.className="msg show"; m.textContent="E-mail ou senha incorretos."; btn.disabled=false; }
+  };
+  $("#go").onclick=go;
+  $("#pw").addEventListener("keydown",e=>{ if(e.key==="Enter") go(); });
+}
+
+function renderAdminBoard(user){
+  root.innerHTML = `
+    <div id="board"></div>
+    <section class="pcard" style="background:#E4E4E7" id="partcard">
+      <div class="phead"><div class="avatar">V</div><h2>Quem já votou</h2><span class="big" id="count">0</span></div>
+      <div id="part"></div>
+      <button class="btn" id="csv">Baixar CSV</button>
+    </section>
+    <p class="foot"><span id="votos-txt"></span> · <a href="#" id="out">sair</a></p>`;
+  $("#out").onclick=e=>{ e.preventDefault(); signOut(auth); };
+  $("#csv").onclick=baixarCSV;
+  unsubs.push(onSnapshot(doc(db,"config","estado"), snap=>{
+    adminEstado = snap.exists()? { abertas: snap.data().abertas||[] } : { abertas: [] };
+    drawBoard();
+  }));
+  unsubs.push(onSnapshot(collection(db,"votos"), snap=>{
+    adminVotos=[]; snap.forEach(d=>adminVotos.push(d.data()));
+    drawBoard(); drawParticipacao();
+  }, err=>{
+    $("#board").innerHTML=`<section class="pcard" style="background:#E4E4E7"><div class="cardmsg err">Erro ao ler os votos: ${esc(err.message)}. Confira se as regras do Firestore foram publicadas e se este e-mail é o da professora.</div></section>`;
+  }));
+}
+
+function drawBoard(){
+  const el=$("#board"); if(!el) return;
+  $("#count").textContent = adminVotos.length;
+  $("#votos-txt").textContent = `${adminVotos.length} voto${adminVotos.length===1?"":"s"}`;
+  const total=ALUNOS.length;
+  const dados = PROJETOS.map(p=>{
+    const vs=adminVotos.filter(v=>v.alvo===p.id);
+    const n=vs.length;
+    const cats=Object.fromEntries(CATS.map(c=>[c.key, n? vs.reduce((s,v)=>s+v[c.key],0)/n : null]));
+    return { p, n, esperados:total-p.membros.length, cats, final:n? vs.reduce((s,v)=>s+v.media,0)/n : null };
+  });
+  const ordem = dados.filter(d=>d.final!==null).sort((a,b)=>b.final-a.final);
+  const pos = d=>{ if(d.final===null) return "-"; return ordem.findIndex(o=>o.final===d.final)+1+"º"; };
+  const fmt=v=>v===null?"-":v.toFixed(1);
+  el.innerHTML = dados.map(d=>{
+    const aberta=adminEstado.abertas.includes(d.p.id);
+    return `
+    <section class="pcard" style="background:${d.p.cor}" id="acard-${d.p.id}">
+      <div class="phead"><div class="avatar">${esc(d.p.nome[0])}</div><h2>${esc(d.p.nome)}</h2><span class="big">${fmt(d.final)}</span></div>
+      ${CATS.map(c=>`<div class="prow"><span class="lb">${esc(c.nome)}</span><span class="val">${fmt(d.cats[c.key])}</span></div>`).join("")}
+      <div class="prow"><span class="lb">Posição</span><span class="val">${pos(d)}</span></div>
+      <div class="prow"><span class="lb">Votos</span><span class="val">${d.n}/${d.esperados}</span></div>
+      <div class="prow"><span class="lb">Votação</span><span class="val st ${aberta?"open":""}">${aberta?"Aberta":"Fechada"}</span></div>
+      <button class="btn ${aberta?"light":""}" data-toggle="${d.p.id}">${aberta?"Fechar votação":"Abrir votação"}</button>
+    </section>`;
+  }).join("");
+  el.querySelectorAll("[data-toggle]").forEach(b=>{
+    b.onclick=async()=>{
+      const id=b.dataset.toggle;
+      const set=new Set(adminEstado.abertas);
+      if(set.has(id)) set.delete(id); else set.add(id);
+      b.disabled=true;
+      try{ await setDoc(doc(db,"config","estado"),{abertas:[...set]}); }
+      catch(e){ alert("Não foi possível alterar: "+e.message); b.disabled=false; }
+    };
+  });
+}
+
+function drawParticipacao(){
+  const el=$("#part"); if(!el) return;
+  const cont={};
+  adminVotos.forEach(v=>{ cont[v.votante]=(cont[v.votante]||0)+1; });
+  const esperados=PROJETOS.length-1;
+  el.innerHTML = ALUNOS.slice().sort((a,b)=>a.nome.localeCompare(b.nome,"pt")).map(a=>
+    `<div class="prow"><span class="lb">${esc(a.nome)} · ${esc(projetoPorId[a.projeto].nome)}</span><span class="val">${cont[a.id]||0} de ${esperados}</span></div>`
+  ).join("");
+}
+
+function baixarCSV(){
+  const num=v=>String(v).replace(".",",");
+  const linhas=[["Votante","Projeto do votante","Projeto avaliado",...CATS.map(c=>c.nome),"Média","Data"]];
+  adminVotos.slice().sort((a,b)=>a.ts-b.ts).forEach(v=>{
+    const av=alunoPorId[v.votante], pj=projetoPorId[v.alvo];
+    linhas.push([
+      av?av.nome:v.votante, av?projetoPorId[av.projeto].nome:"", pj?pj.nome:v.alvo,
+      ...CATS.map(c=>v[c.key]), num(v.media), new Date(v.ts).toLocaleString("pt-BR")
+    ]);
+  });
+  const csv="﻿"+linhas.map(l=>l.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(";")).join("\r\n");
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+  a.download="votos-projeto-final.csv"; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+
+/* ============================================================
+   INÍCIO (fica no fim para as variáveis acima já existirem)
+   ============================================================ */
+if(!configOK){ renderConfigWarning(); }
+else if(isAdmin){ renderAdmin(); }
+else { startStudent(); }
+</script>
+</body>
+</html>
