@@ -56,6 +56,8 @@
   .field{display:block;font-weight:700;font-size:.68rem;letter-spacing:.09em;text-transform:uppercase;color:var(--label);margin:14px 0 6px}
   .msg{font-size:.8rem;font-weight:600;color:var(--danger);margin-top:12px;display:none}
   .msg.show{display:block}
+  .back{display:inline-block;font-weight:700;font-size:.82rem;color:var(--label);text-decoration:none;margin:0 0 12px 2px}
+  .back:hover{color:var(--ink)}
   .foot{color:var(--hint);font-size:.75rem;text-align:center;margin-top:18px}
   .foot a{color:var(--label);text-underline-offset:3px}
   .loading{text-align:center;color:var(--label);padding:40px 0;font-size:.85rem}
@@ -242,8 +244,10 @@ function renderHome(){
         <div class="cardmsg" id="msg-${p.id}"></div>
       </section>`;
   }).join("");
-  root.innerHTML = `${cards}<p class="foot">${esc(eu.nome)} · <a href="#" id="logout">trocar</a></p>`;
-  $("#logout").onclick=e=>{ e.preventDefault(); localStorage.removeItem("votante_id"); currentUser=null; rascunho={}; renderLogin(); };
+  root.innerHTML = `<a href="#" class="back" id="back" aria-label="Voltar">← Voltar</a>${cards}<p class="foot">${esc(eu.nome)} · <a href="#" id="logout">trocar</a></p>`;
+  const sair = e=>{ e.preventDefault(); localStorage.removeItem("votante_id"); currentUser=null; rascunho={}; renderLogin(); };
+  $("#logout").onclick=sair;
+  $("#back").onclick=sair;
 
   alvos.forEach(p=>{
     const inputs = CATS.map(c=>$(`#n-${p.id}-${c.key}`));
